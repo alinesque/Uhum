@@ -34,6 +34,10 @@ package com.microsoft.CognitiveServicesExample;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.admin.DevicePolicyManager;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.View;
@@ -42,7 +46,6 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.RadioGroup;
 
-import com.microsoft.bing.speech.Conversation;
 import com.microsoft.bing.speech.SpeechClientStatus;
 import com.microsoft.cognitiveservices.speechrecognition.DataRecognitionClient;
 import com.microsoft.cognitiveservices.speechrecognition.ISpeechRecognitionServerEvents;
@@ -51,11 +54,11 @@ import com.microsoft.cognitiveservices.speechrecognition.RecognitionResult;
 import com.microsoft.cognitiveservices.speechrecognition.RecognitionStatus;
 import com.microsoft.cognitiveservices.speechrecognition.SpeechRecognitionMode;
 import com.microsoft.cognitiveservices.speechrecognition.SpeechRecognitionServiceFactory;
+
 import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
 
-public class MainActivity extends Activity implements ISpeechRecognitionServerEvents
-{
+public class MainActivity extends Activity implements ISpeechRecognitionServerEvents {
     int m_waitSeconds = 0;
     DataRecognitionClient dataClient = null;
     MicrophoneRecognitionClient micClient = null;
@@ -65,7 +68,13 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
     Button _buttonSelectMode;
     Button _startButton;
 
-    public enum FinalResponseStatus { NotReceived, OK, Timeout }
+    private CallReceiver callReceiver;
+
+    private static final int REQUEST_CODE = 0;
+    private DevicePolicyManager mDPM;
+    private ComponentName mAdminName;
+
+    public enum FinalResponseStatus {NotReceived, OK, Timeout}
 
     /**
      * Gets the primary subscription key
@@ -76,6 +85,7 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
 
     /**
      * Gets the LUIS application identifier.
+     *
      * @return The LUIS application identifier.
      */
     private String getLuisAppId() {
@@ -84,6 +94,7 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
 
     /**
      * Gets the LUIS subscription identifier.
+     *
      * @return The LUIS subscription identifier.
      */
     private String getLuisSubscriptionID() {
@@ -92,6 +103,7 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
 
     /**
      * Gets a value indicating whether or not to use the microphone.
+     *
      * @return true if [use microphone]; otherwise, false.
      */
     private Boolean getUseMicrophone() {
@@ -103,6 +115,7 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
 
     /**
      * Gets a value indicating whether LUIS results are desired.
+     *
      * @return true if LUIS results are to be returned otherwise, false.
      */
     private Boolean getWantIntent() {
@@ -113,6 +126,7 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
 
     /**
      * Gets the current speech recognition mode.
+     *
      * @return The speech recognition mode.
      */
     private SpeechRecognitionMode getMode() {
@@ -127,6 +141,7 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
 
     /**
      * Gets the default locale.
+     *
      * @return The default locale.
      */
     private String getDefaultLocale() {
@@ -135,6 +150,7 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
 
     /**
      * Gets the short wave file path.
+     *
      * @return The short wave file.
      */
     private String getShortWaveFile() {
@@ -143,6 +159,7 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
 
     /**
      * Gets the long wave file path.
+     *
      * @return The long wave file.
      */
     private String getLongWaveFile() {
@@ -151,6 +168,7 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
 
     /**
      * Gets the Cognitive Service Authentication Uri.
+     *
      * @return The Cognitive Service Authentication Uri.  Empty if the global default is to be used.
      */
     private String getAuthenticationUri() {
@@ -162,9 +180,31 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        this.callReceiver = new CallReceiver();
+
+        try {
+            // Initiate DevicePolicyManager.
+            mDPM = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
+            mAdminName = new ComponentName(this, DeviceAdminDemo.class);
+
+            if (!mDPM.isAdminActive(mAdminName)) {
+                Intent intent = new Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN);
+                intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, mAdminName);
+                intent.putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Click on Activate button to secure your application.");
+                startActivityForResult(intent, REQUEST_CODE);
+            } else {
+                // mDPM.lockNow();
+                // Intent intent = new Intent(MainActivity.this,
+                // TrackDeviceService.class);
+                // startService(intent);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         this._logText = (EditText) findViewById(R.id.editText1);
-        this._radioGroup = (RadioGroup)findViewById(R.id.groupMode);
-        this._buttonSelectMode = (Button)findViewById(R.id.buttonSelectMode);
+        this._radioGroup = (RadioGroup) findViewById(R.id.groupMode);
+        this._buttonSelectMode = (Button) findViewById(R.id.buttonSelectMode);
         this._startButton = (Button) findViewById(R.id.button1);
         String temp = getString(R.string.primaryKey);
         if (temp.startsWith("Please")) {
@@ -201,6 +241,16 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
         this.ShowMenu(true);
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (REQUEST_CODE == requestCode) {
+            Intent intent = new Intent(MainActivity.this, TService.class);
+            startService(intent);
+        }
+    }
+
     private void ShowMenu(boolean show) {
         if (show) {
             this._radioGroup.setVisibility(View.VISIBLE);
@@ -211,6 +261,7 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
             this._logText.setVisibility(View.VISIBLE);
         }
     }
+
     /**
      * Handles the Click event of the _startButton control.
      */
@@ -237,9 +288,7 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
                                     this.getPrimaryKey(),
                                     this.getLuisAppId(),
                                     this.getLuisSubscriptionID());
-                }
-                else
-                {
+                } else {
                     this.micClient = SpeechRecognitionServiceFactory.createMicrophoneClient(
                             this,
                             this.getMode(),
@@ -252,9 +301,7 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
             }
 
             this.micClient.startMicAndRecognition();
-        }
-        else
-        {
+        } else {
             if (null == this.dataClient) {
                 if (this.getWantIntent()) {
                     this.dataClient =
@@ -265,8 +312,7 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
                                     this.getPrimaryKey(),
                                     this.getLuisAppId(),
                                     this.getLuisSubscriptionID());
-                }
-                else {
+                } else {
                     this.dataClient = SpeechRecognitionServiceFactory.createDataClient(
                             this,
                             this.getMode(),
@@ -300,12 +346,9 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
 
     private void SendAudioHelper(String filename) {
         RecognitionTask doDataReco = new RecognitionTask(this.dataClient, this.getMode(), filename);
-        try
-        {
+        try {
             doDataReco.execute().get(m_waitSeconds, TimeUnit.SECONDS);
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             doDataReco.cancel(true);
             isReceivedResponse = FinalResponseStatus.Timeout;
         }
@@ -363,6 +406,7 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
 
     /**
      * Called when the microphone status has changed.
+     *
      * @param recording The current recording state
      */
     public void onAudioEvent(boolean recording) {
@@ -388,6 +432,7 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
 
     /**
      * Writes the line.
+     *
      * @param text The line to write.
      */
     private void WriteLine(String text) {
@@ -396,7 +441,8 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
 
     /**
      * Handles the Click event of the RadioButton control.
-     * @param rGroup The radio grouping.
+     *
+     * @param rGroup    The radio grouping.
      * @param checkedId The checkedId.
      */
     private void RadioButton_Click(RadioGroup rGroup, int checkedId) {
@@ -470,8 +516,7 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
 
             } catch (Throwable throwable) {
                 throwable.printStackTrace();
-            }
-            finally {
+            } finally {
                 dataClient.endAudio();
             }
 

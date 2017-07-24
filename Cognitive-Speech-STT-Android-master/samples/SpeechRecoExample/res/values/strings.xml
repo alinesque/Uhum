@@ -17,4 +17,7 @@
 
     <string name="app_name">Project Oxford Speech Recognition Sample</string>
     <string name="action_settings">Settings</string>
+
+    <string name="device_description">Uhum</string>
+    <string name="device_admin_label">Device_ADMIN</string>
 </resources>
