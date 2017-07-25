@@ -38,8 +38,11 @@ import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.media.AudioManager;
+import android.media.MediaPlayer;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
@@ -55,6 +58,7 @@ import com.microsoft.cognitiveservices.speechrecognition.RecognitionStatus;
 import com.microsoft.cognitiveservices.speechrecognition.SpeechRecognitionMode;
 import com.microsoft.cognitiveservices.speechrecognition.SpeechRecognitionServiceFactory;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
 
@@ -67,8 +71,10 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
     RadioGroup _radioGroup;
     Button _buttonSelectMode;
     Button _startButton;
+    MediaPlayer mPlayer;
 
     private CallReceiver callReceiver;
+
 
     private static final int REQUEST_CODE = 0;
     private DevicePolicyManager mDPM;
@@ -182,6 +188,7 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
 
         this.callReceiver = new CallReceiver();
 
+
         try {
             // Initiate DevicePolicyManager.
             mDPM = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
@@ -201,6 +208,19 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+
+        //am.setMode(AudioManager.MODE_IN_CALL);
+        //am.setSpeakerphoneOn(true);
+
+        this.mPlayer = new MediaPlayer();
+        this.mPlayer = MediaPlayer.create(this.getApplicationContext(), R.raw.uhum); // in 2nd param u have to pass your desire ringtone
+        try {
+            this.mPlayer.prepare();
+        }catch(Exception e){
+            Log.d("ioe",e.toString());
+        }
+        //mPlayer.start();
 
         this._logText = (EditText) findViewById(R.id.editText1);
         this._radioGroup = (RadioGroup) findViewById(R.id.groupMode);
@@ -228,6 +248,7 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
             @Override
             public void onClick(View arg0) {
                 This.ShowMenu(This._radioGroup.getVisibility() == View.INVISIBLE);
+                mPlayer.start();
             }
         });
 
@@ -239,6 +260,17 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
         });
 
         this.ShowMenu(true);
+    }
+
+    @Override
+    protected void onDestroy()
+    {
+        super.onDestroy();
+        if (mPlayer != null)
+        {
+            mPlayer.release();
+            mPlayer = null;
+        }
     }
 
     @Override
@@ -522,5 +554,6 @@ public class MainActivity extends Activity implements ISpeechRecognitionServerEv
 
             return null;
         }
+
     }
 }

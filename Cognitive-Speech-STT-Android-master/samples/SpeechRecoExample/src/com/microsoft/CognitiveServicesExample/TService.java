@@ -5,7 +5,10 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.media.AudioManager;
+import android.media.MediaPlayer;
 import android.media.MediaRecorder;
+import android.media.SoundPool;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.IBinder;
@@ -41,6 +44,7 @@ public class TService extends Service {
     private static final String ACTION_IN = "android.intent.action.PHONE_STATE";
     private static final String ACTION_OUT = "android.intent.action.NEW_OUTGOING_CALL";
     private CallBr br_call;
+    private AudioManager am;
 
 
     @Override
@@ -77,6 +81,7 @@ public class TService extends Service {
         filter.addAction(ACTION_IN);
         this.br_call = new CallBr();
         this.registerReceiver(this.br_call, filter);
+        am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
 
         // if(terminate != null) {
         // stopSelf();
@@ -119,8 +124,9 @@ public class TService extends Service {
 
                             recorder = new MediaRecorder();
 //                          recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_CALL);
-//                            recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_DOWNLINK);
+//                          recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_DOWNLINK);
                             recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION);
+
                             recorder.setOutputFormat(MediaRecorder.OutputFormat.AMR_NB);
                             recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
                             recorder.setOutputFile(audiofile.getAbsolutePath());
@@ -133,6 +139,14 @@ public class TService extends Service {
                             }
                             recorder.start();
                             recordstarted = true;
+                            /*
+                            am.setMode(AudioManager.MODE_IN_CALL);
+                            am.setSpeakerphoneOn(true);
+
+                            MediaPlayer mPlayer = MediaPlayer.create(context, R.raw.uhum); // in 2nd param u have to pass your desire ringtone
+                            //mPlayer.prepare();
+                            mPlayer.start();
+                            */
                         }
                     } else if (state.equals(TelephonyManager.EXTRA_STATE_IDLE)) {
                         wasRinging = false;
